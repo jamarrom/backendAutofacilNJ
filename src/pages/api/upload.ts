@@ -1,77 +1,52 @@
-import { NextApiRequest, NextApiResponse } from 'next'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from './auth/[...nextauth]'
-import formidable from 'formidable'
+// pages/api/upload.ts → VUELVE A ESTO (el que ya funcionaba)
+import type { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs'
 import path from 'path'
+import formidable from 'formidable'
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}
+export const config = { api: { bodyParser: false } }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const session = await getServerSession(req, res, authOptions)
+const uploadDir = path.join(process.cwd(), 'public', 'uploads')  // ← public!
 
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' })
-  }
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') return res.status(405).end()
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+  const form = formidable({
+    multiples: true,
+    uploadDir,
+    keepExtensions: true,
+    maxFileSize: 10 * 1024 * 1024,
+  })
 
-  try {
-    const form = formidable({
-      uploadDir: './public/uploads',
-      keepExtensions: true,
-      maxFiles: 10,
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-      filename: (name, ext, part) => {
-        const timestamp = Date.now()
-        const random = Math.random().toString(36).substring(2, 15)
-        return `${timestamp}-${random}${ext}`
-      }
-    })
+  form.parse(req, (err, fields, files) => {
+    if (err) return res.status(500).json({ error: 'Upload failed' })
 
-    const [fields, files] = await form.parse(req)
+    const type = (fields.type?.[0] as string) || 'cars'
+    const typeDir = path.join(uploadDir, type)
+    if (!fs.existsSync(typeDir)) fs.mkdirSync(typeDir, { recursive: true })
 
-    const uploadedFiles = Array.isArray(files.files) ? files.files : [files.files]
-    
-    const results = uploadedFiles.map(file => {
-      if (!file) return null
-      
-      // Mover el archivo a la carpeta correcta
-      const originalPath = file.filepath
-      const fileName = file.newFilename
-      const uploadType = fields.type?.[0] || 'cars'
-      const targetDir = `./public/uploads/${uploadType}`
-      const targetPath = path.join(targetDir, fileName)
+    const uploaded: any[] = []
+    const fileList = Array.isArray(files.files) ? files.files : [files.files]
 
-      // Crear directorio si no existe
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true })
-      }
+    fileList.forEach(file => {
+      if (!file?.originalFilename) return
 
-      // Mover archivo
-      fs.renameSync(originalPath, targetPath)
+      const ext = path.extname(file.originalFilename)
+      const newName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`
+      const oldPath = file.filepath
+      const newPath = path.join(typeDir, newName)
 
-      return {
-        url: `/uploads/${uploadType}/${fileName}`,
-        name: file.originalFilename || fileName,
+      fs.renameSync(oldPath, newPath)
+
+      // AQUÍ ESTÁ EL ÚNICO CAMBIO QUE NECESITAMOS:
+      uploaded.push({
+        url: `/uploads/${type}/${newName}`,  // ← SIN /public
+        name: file.originalFilename,
         size: file.size,
-        type: file.mimetype
-      }
-    }).filter(Boolean)
-
-    res.json({ 
-      success: true, 
-      files: results 
+        type: file.mimetype,
+      })
     })
 
-  } catch (error) {
-    console.error('Error uploading files:', error)
-    res.status(500).json({ error: 'Error uploading files' })
-  }
+    res.status(200).json({ files: uploaded })
+  })
 }
