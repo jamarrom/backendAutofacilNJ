@@ -6,6 +6,7 @@ import AdminLayout from '../../components/AdminLayout'
 
 interface Car {
   id: string
+  title: string
   brand: string
   model: string
   year: number
@@ -151,7 +152,7 @@ export default function AdminDashboard() {
                 <tr key={car.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                   <td style={{ padding: '1.25rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <strong>{car.brand} {car.model}</strong>
+                      <strong>{car.title}</strong>
                       {car.isFeatured && (
                         <span style={{
                           backgroundColor: '#dc2626',
