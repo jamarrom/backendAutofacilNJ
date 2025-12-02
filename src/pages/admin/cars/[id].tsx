@@ -657,21 +657,43 @@ export default function EditCar({ car }: { car: Car }) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context)
-  if (!session) return { redirect: { destination: '/login', permanent: false } }
+  // CORRECTO: pasarle el req para que lea la cookie
+  const session = await getSession({ req: context.req })
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    }
+  }
 
   const { id } = context.params as { id: string }
 
   try {
     const host = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
+
+    // PASAR LA COOKIE para que la API reciba la sesión
     const res = await fetch(`${host}/api/cars/${id}`, {
-      headers: { cookie: context.req.headers.cookie || '' },
+      headers: {
+        cookie: context.req.headers.cookie || '',
+      },
     })
 
-    if (!res.ok) throw new Error()
-    const car: Car = await res.json()
-    return { props: { car } }
-  } catch {
+    if (!res.ok) {
+      const text = await res.text()
+      console.error('Error API cars/[id]:', res.status, text)
+      throw new Error('Car not found or unauthorized')
+    }
+
+    const car = await res.json()
+
+    return {
+      props: { car },
+    }
+  } catch (error) {
+    console.error('Error en getServerSideProps:', error)
     return { notFound: true }
   }
 }
