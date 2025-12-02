@@ -13,6 +13,11 @@ const MARCAS = [
   { value: 'TESLA', label: 'Tesla' },
   { value: 'AUDI', label: 'Audi' },
   { value: 'LEXUS', label: 'Lexus' },
+  { value: 'CADILLAC', label: 'Cadillac' },
+  { value: 'DODGE', label: 'Dodge' },
+  { value: 'FORD', label: 'Ford' },
+  { value: 'JEEP', label: 'Jeep' },
+  { value: 'VOLKSWAGEN', label: 'Volkswagen' },
 ] as const
 
 const carTypes = ['SEDAN', 'SUV', 'COUPE', 'HATCHBACK', 'TRUCK', 'CONVERTIBLE'] as const

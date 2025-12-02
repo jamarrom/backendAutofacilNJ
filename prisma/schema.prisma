@@ -136,4 +136,9 @@ enum CarBrand {
   TESLA
   AUDI
   LEXUS
+  CADILLAC
+  DODGE
+  FORD
+  JEEP
+  VOLKSWAGEN
 }

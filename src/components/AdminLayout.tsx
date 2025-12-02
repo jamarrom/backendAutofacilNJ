@@ -44,7 +44,7 @@ export default function AdminLayout({
           }}
         >
           <h1 style={{ fontSize: '2.5rem', fontWeight: '900', margin: 0 }}>
-            Panel Admin - AutoFácil
+            <img src="../logoFooter.png" />  Panel Admin - AutoFácil
           </h1>
           <button
             onClick={() => router.push('/api/auth/signout')}

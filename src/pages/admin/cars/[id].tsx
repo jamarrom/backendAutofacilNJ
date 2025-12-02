@@ -12,15 +12,14 @@ const BRANDS = [
   { value: 'BMW', label: 'BMW' },
   { value: 'MERCEDES_BENZ', label: 'Mercedes-Benz' },
   { value: 'PORSCHE', label: 'Porsche' },
+  { value: 'TESLA', label: 'Tesla' },
   { value: 'AUDI', label: 'Audi' },
   { value: 'LEXUS', label: 'Lexus' },
-  { value: 'TESLA', label: 'Tesla' },
-  { value: 'FERRARI', label: 'Ferrari' },
-  { value: 'LAMBORGHINI', label: 'Lamborghini' },
-  { value: 'LAND_ROVER', label: 'Land Rover' },
-  { value: 'JAGUAR', label: 'Jaguar' },
-  { value: 'MASERATI', label: 'Maserati' },
-  { value: 'BENTLEY', label: 'Bentley' },
+  { value: 'CADILLAC', label: 'Cadillac' },
+  { value: 'DODGE', label: 'Dodge' },
+  { value: 'FORD', label: 'Ford' },
+  { value: 'JEEP', label: 'Jeep' },
+  { value: 'VOLKSWAGEN', label: 'Volkswagen' },
 ] as const
 
 const CAR_TYPES = ['SEDAN', 'SUV', 'COUPE', 'HATCHBACK', 'TRUCK', 'CONVERTIBLE'] as const
