@@ -7,6 +7,7 @@ import { useRouter } from 'next/router'
 import { getSession } from 'next-auth/react'
 import ImageUpload from '../../../components/ImageUpload'
 import AdminLayout from '../../../components/AdminLayout'
+import {prisma} from '../../../lib/prisma'
 
 const BRANDS = [
   { value: 'BMW', label: 'BMW' },
@@ -657,7 +658,6 @@ export default function EditCar({ car }: { car: Car }) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  // CORRECTO: pasarle el req para que lea la cookie
   const session = await getSession({ req: context.req })
 
   if (!session) {
@@ -672,28 +672,42 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string }
 
   try {
-    const host = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
-
-    // PASAR LA COOKIE para que la API reciba la sesión
-    const res = await fetch(`${host}/api/cars/${id}`, {
-      headers: {
-        cookie: context.req.headers.cookie || '',
+    const car = await prisma.car.findUnique({
+      where: { id },
+      include: {
+        images: {
+          orderBy: { order: 'asc' },
+        },
+        features: true,
       },
     })
 
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('Error API cars/[id]:', res.status, text)
-      throw new Error('Car not found or unauthorized')
+    if (!car) {
+      return { notFound: true }
     }
 
-    const car = await res.json()
+    // CONVERSIÓN DE FECHAS A STRING (esto arregla el error)
+    const serializedCar = {
+      ...car,
+      createdAt: car.createdAt.toISOString(),
+      updatedAt: car.updatedAt.toISOString(),
+      // Si tienes más fechas (ej: auctionEndDate), conviértelas también:
+      // auctionEndDate: car.auctionEndDate?.toISOString() || null,
+      images: car.images.map(img => ({
+        url: img.url,
+        order: img.order,
+        isPrimary: img.isPrimary,
+      })),
+      features: car.features || [],
+    }
 
     return {
-      props: { car },
+      props: {
+        car: serializedCar,
+      },
     }
   } catch (error) {
-    console.error('Error en getServerSideProps:', error)
+    console.error('Error cargando vehículo:', error)
     return { notFound: true }
   }
 }
