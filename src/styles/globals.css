@@ -35,6 +35,16 @@ a {
   text-decoration: none;
 }
 
+
+input, select,textarea {
+  color: #000000!important;
+  background-color: #ffffff!important;
+}
+
+label {
+  color: #000000!important;
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;

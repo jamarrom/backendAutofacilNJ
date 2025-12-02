@@ -123,7 +123,7 @@ export default function AdminDashboard() {
             }}
           >
             <option value="ALL">Todos los autos</option>
-            <option value="NEW">Solo nuevos</option>
+            <option value="NEW">Solo semi nuevos</option>
             <option value="AUCTION">Solo remates</option>
           </select>
         </div>
@@ -180,11 +180,11 @@ export default function AdminDashboard() {
                       backgroundColor: car.category === 'NEW' ? '#dbeafe' : '#fee2e2',
                       color: car.category === 'NEW' ? '#1e40af' : '#991b1b'
                     }}>
-                      {car.category === 'NEW' ? 'Nuevo' : 'Remate'}
+                      {car.category === 'NEW' ? 'Semi nuevo' : 'Remate'}
                     </span>
                   </td>
                   <td style={{ padding: '1.25rem' }}>
-                    {/* <Link
+                    <Link
                       href={`/admin/cars/${car.id}`}
                       style={{
                         color: '#1e40af',
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
                       }}
                     >
                       Editar
-                    </Link> */}
+                    </Link>
                     <button
                       onClick={() => deleteCar(car.id)}
                       style={{

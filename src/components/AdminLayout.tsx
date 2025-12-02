@@ -1,150 +1,113 @@
 // components/AdminLayout.tsx
+import { getSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { signOut } from 'next-auth/react'
-import { ReactNode } from 'react'
 
-// ÍCONOS CORRECTOS de react-icons
-import { FaCar, FaImages, FaGavel, FaSignOutAlt, FaHome } from 'react-icons/fa'
-import { MdDashboard } from 'react-icons/md'
-
-interface AdminLayoutProps {
-  children: ReactNode
+export default function AdminLayout({
+  children,
+  title = "Admin",
+}: {
+  children: React.ReactNode
   title?: string
-}
-
-const navigation = [
-  { name: 'Autos', href: '/admin', icon: FaCar },
-  { name: 'Slider Home', href: '/admin/sliders?tab=home', icon: FaImages },
-  { name: 'Slider Remate', href: '/admin/sliders?tab=auction', icon: FaGavel },
-]
-
-export default function AdminLayout({ children, title = 'Panel Admin' }: AdminLayoutProps) {
+}) {
   const router = useRouter()
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/login' })
-  }
-
-  const isActive = (href: string) => {
-    if (href === '/admin') return router.asPath === '/admin' || router.asPath.startsWith('/admin/cars')
-    return router.asPath.startsWith(href)
-  }
+  const menuItems = [
+    { href: '/admin', label: 'Autos', icon: '🚗' },
+    { href: '/admin/content', label: 'Contenido', icon: '📝' },
+  ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: '280px',
-        background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%)',
-        color: 'white',
-        padding: '2rem 1rem',
-        position: 'fixed',
-        height: '100vh',
-        overflowY: 'auto',
-        boxShadow: '4px 0 20px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
-            AutoFácil
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#f3f4f6',
+        fontFamily: 'system-ui, sans-serif',
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          background: 'linear-gradient(90deg, #1e3a8a, #1e40af)',
+          color: 'white',
+          padding: '1.5rem 2rem',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1400px',
+            margin: '0 auto',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <h1 style={{ fontSize: '2.5rem', fontWeight: '900', margin: 0 }}>
+            Panel Admin - AutoFácil
           </h1>
-          <p style={{ opacity: 0.9, fontSize: '0.9rem' }}>Panel Administrativo</p>
+          <button
+            onClick={() => router.push('/api/auth/signout')}
+            style={{
+              padding: '0.75rem 2rem',
+              backgroundColor: '#dc2626',
+              color: 'white',
+              border: 'none',
+              borderRadius: '1rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            Cerrar Sesión
+          </button>
         </div>
+      </header>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {navigation.map((item) => {
-            const active = isActive(item.href)
+      <div style={{ display: 'flex' }}>
+        {/* Sidebar */}
+        <aside
+          style={{
+            width: '280px',
+            backgroundColor: '#1f2937',
+            color: 'white',
+            minHeight: 'calc(100vh - 90px)',
+            padding: '2rem 0',
+          }}
+        >
+          {menuItems.map((item) => {
+            const isActive =
+              router.asPath === item.href
+
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1rem 1.5rem',
-                  borderRadius: '12px',
-                  backgroundColor: active ? 'rgba(255,255,255,0.2)' : 'transparent',
-                  color: 'white',
-                  textDecoration: 'none',
-                  fontWeight: active ? '600' : '500',
-                  transition: 'all 0.3s',
-                  backdropFilter: active ? 'blur(10px)' : 'none'
-                }}
-                onMouseEnter={(e) => !active && (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)')}
-                onMouseLeave={(e) => !active && (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <item.icon size={24} />
-                <span>{item.name}</span>
-                {active && <div style={{ marginLeft: 'auto', width: '8px', height: '8px', background: 'white', borderRadius: '50%' }} />}
+              <Link key={item.href} href={item.href}>
+                <div
+                  style={{
+                    padding: '1.5rem 2rem',
+                    fontSize: '1.4rem',
+                    fontWeight: isActive ? '900' : '600',
+                    backgroundColor: isActive ? '#dc2626' : 'transparent',
+                    borderLeft: isActive ? '8px solid #fbbf24' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                  }}
+                  onMouseOver={(e) =>
+                    !isActive &&
+                    (e.currentTarget.style.backgroundColor = '#374151')
+                  }
+                  onMouseOut={(e) =>
+                    !isActive &&
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
+                >
+                  {item.icon} {item.label}
+                </div>
               </Link>
             )
           })}
-        </nav>
+        </aside>
 
-        <button
-          onClick={handleSignOut}
-          style={{
-            marginTop: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            width: '100%',
-            padding: '1rem 1.5rem',
-            backgroundColor: '#dc2626',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.3s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-        >
-          <FaSignOutAlt size={22} />
-          Cerrar Sesión
-        </button>
-      </aside>
-
-      {/* Contenido principal */}
-      <div style={{ marginLeft: '280px', flex: 1 }}>
-        <header style={{
-          backgroundColor: 'white',
-          padding: '1.5rem 3rem',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10
-        }}>
-          <h2 style={{ fontSize: '1.8rem', color: '#1e3a8a', margin: 0 }}>
-            {title}
-          </h2>
-
-          {router.asPath !== '/admin' && (
-            <button
-              onClick={() => router.back()}
-              style={{
-                backgroundColor: '#6b7280',
-                color: 'white',
-                padding: '0.75rem 1.8rem',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              ← Volver
-            </button>
-          )}
-        </header>
-
-        <main style={{ padding: '2.5rem', maxWidth: '1400px', margin: '0 auto' }}>
-          {children}
-        </main>
+        {/* Contenido principal */}
+        <main style={{ flex: 1, padding: '2rem' }}>{children}</main>
       </div>
     </div>
   )

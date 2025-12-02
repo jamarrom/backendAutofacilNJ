@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
-import ImageUpload from '../../components/ImageUpload'
-import AdminLayout from '../../components/AdminLayout'
+import ImageUpload from '../../../components/ImageUpload'
+import AdminLayout from '../../../components/AdminLayout'
 
 interface Slider {
   id: string
@@ -123,9 +123,9 @@ export default function SlidersAdmin() {
           flexWrap: 'wrap',
           gap: '1rem'
         }}>
-          <h1 style={{ fontSize: '2.2rem', color: '#1e3a8a', margin: 0 }}>
+          {/* <h1 style={{ fontSize: '2.2rem', color: '#1e3a8a', margin: 0 }}>
             {currentTitle}
-          </h1>
+          </h1> */}
 
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
@@ -145,7 +145,7 @@ export default function SlidersAdmin() {
             >
               Slider Home
             </button>
-            <button
+            {/* <button
               onClick={() => handleTabChange('auction')}
               style={{
                 padding: '0.85rem 2rem',
@@ -161,7 +161,7 @@ export default function SlidersAdmin() {
               }}
             >
               Slider Remate
-            </button>
+            </button> */}
           </div>
         </div>
 

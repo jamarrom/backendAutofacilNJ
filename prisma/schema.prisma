@@ -20,7 +20,8 @@ model User {
 
 model Car {
   id          String   @id @default(cuid())
-  brand       String
+  title       String
+  brand       CarBrand
   model       String
   year        Int
   price       Float
@@ -93,6 +94,16 @@ model AuctionSlider {
   @@map("auction_sliders")
 }
 
+model SiteContent {
+  id        String   @id @default(cuid())
+  key       String   @unique // ej: "contact_info", "home_slider"
+  value     Json     // guardamos todo como JSON flexible
+  updatedAt DateTime @updatedAt
+  updatedBy String?  // opcional: email del admin
+
+  @@map("site_content")
+}
+
 enum CarType {
   SEDAN
   SUV
@@ -116,4 +127,13 @@ enum TransmissionType {
 enum CarCategory {
   NEW
   AUCTION
+}
+
+enum CarBrand {
+  BMW
+  MERCEDES_BENZ
+  PORSCHE
+  TESLA
+  AUDI
+  LEXUS
 }

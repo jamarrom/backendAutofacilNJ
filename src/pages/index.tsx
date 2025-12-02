@@ -66,7 +66,7 @@ export default function Login() {
           marginBottom: '2rem',
           color: '#1e3a8a'
         }}>
-          AutoFácil Admin
+          <img src="./logo.png" alt='logo' />
         </h1>
         
         <form onSubmit={handleSubmit}>
