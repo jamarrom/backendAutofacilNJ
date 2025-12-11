@@ -10,24 +10,29 @@ interface UploadedFile {
 interface ImageUploadProps {
   onFilesUpload: (files: UploadedFile[]) => void
   multiple?: boolean
-  uploadType?: 'cars' | 'sliders'
+  uploadType?: 'cars' | 'sliders' | 'videos' // puedes agregar más si quieres
   maxFiles?: number
+  accept?: string              // NUEVA PROP
+  label?: string               // Para personalizar el texto (opcional)
 }
 
 export default function ImageUpload({ 
   onFilesUpload, 
   multiple = true, 
   uploadType = 'cars',
-  maxFiles = 10 
+  maxFiles = 10,
+  accept = "image/*",          // por defecto imágenes
+  label                                 // nuevo: texto personalizado
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const isVideo = accept.includes('video')
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0) return
-
     await uploadFiles(Array.from(files))
   }
 
@@ -37,9 +42,7 @@ export default function ImageUpload({
 
     try {
       const formData = new FormData()
-      files.forEach(file => {
-        formData.append('files', file)
-      })
+      files.forEach(file => formData.append('files', file))
       formData.append('type', uploadType)
 
       const response = await fetch('/api/upload', {
@@ -56,29 +59,41 @@ export default function ImageUpload({
       }
     } catch (error) {
       console.error('Error uploading files:', error)
-      alert('Error al subir las imágenes')
+      alert(isVideo ? 'Error al subir el video' : 'Error al subir las imágenes')
     } finally {
       setUploading(false)
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    const files = Array.from(event.dataTransfer.files)
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    
-    if (imageFiles.length > 0) {
-      uploadFiles(imageFiles)
+    const droppedFiles = Array.from(event.dataTransfer.files)
+
+    // Filtramos por el accept que venga (imagen o video)
+    const validFiles = droppedFiles.filter(file => 
+      accept.split(',').some(pattern => 
+        file.type.match(new RegExp(pattern.trim().replace('*', '.*')))
+      )
+    )
+
+    if (validFiles.length > 0) {
+      uploadFiles(validFiles)
     }
   }
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
   }
+
+  // Texto dinámico según si es video o imagen
+  const defaultLabel = isVideo 
+    ? 'Haz clic o arrastra un video aquí'
+    : 'Haz clic o arrastra imágenes aquí'
+
+  const defaultSubLabel = isVideo
+    ? 'MP4, WebM, OGG – Máximo 100MB recomendado'
+    : 'PNG, JPG, JPEG hasta 10MB'
 
   return (
     <div>
@@ -87,12 +102,14 @@ export default function ImageUpload({
         onDragOver={handleDragOver}
         style={{
           border: '2px dashed #ccc',
-          borderRadius: '8px',
-          padding: '2rem',
+          borderRadius: '12px',
+          padding: '2.5rem',
           textAlign: 'center',
           cursor: uploading ? 'not-allowed' : 'pointer',
-          backgroundColor: uploading ? '#f8fafc' : 'white',
-          opacity: uploading ? 0.7 : 1
+          backgroundColor: uploading ? '#f8fafc' : '#ffffff',
+          opacity: uploading ? 0.6 : 1,
+          transition: 'all 0.3s',
+          boxShadow: uploading ? 'none' : '0 4px 12px rgba(0,0,0,0.05)'
         }}
         onClick={() => !uploading && fileInputRef.current?.click()}
       >
@@ -100,7 +117,7 @@ export default function ImageUpload({
           ref={fileInputRef}
           type="file"
           multiple={multiple}
-          accept="image/*"
+          accept={accept}                    // ahora sí respeta lo que le pases
           onChange={handleFileSelect}
           style={{ display: 'none' }}
           disabled={uploading}
@@ -108,30 +125,32 @@ export default function ImageUpload({
         
         {uploading ? (
           <div>
-            <p>Subiendo imágenes... {progress}%</p>
+            <p style={{ margin: '0 0 1rem', color: '#374151' }}>
+              Subiendo {isVideo ? 'video' : 'imágenes'}... {progress}%
+            </p>
             <div style={{
               width: '100%',
-              height: '4px',
-              backgroundColor: '#e5e5e5',
-              borderRadius: '2px',
+              height: '6px',
+              backgroundColor: '#e5e7eb',
+              borderRadius: '3px',
               overflow: 'hidden'
             }}>
               <div style={{
                 width: `${progress}%`,
                 height: '100%',
                 backgroundColor: '#dc2626',
-                transition: 'width 0.3s ease'
+                transition: 'width 0.4s ease'
               }} />
             </div>
           </div>
         ) : (
           <div>
-            <p style={{ color: '#6b7280', marginBottom: '0.5rem' }}>
-              Haz clic o arrastra imágenes aquí
+            <p style={{ color: '#374151', fontWeight: '600', marginBottom: '0.5rem' }}>
+              {label || defaultLabel}
             </p>
             <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-              PNG, JPG, JPEG hasta 10MB
-              {multiple && `, máximo ${maxFiles} archivos`}
+              {defaultSubLabel}
+              {!multiple && ' (solo 1 archivo)'}
             </p>
           </div>
         )}

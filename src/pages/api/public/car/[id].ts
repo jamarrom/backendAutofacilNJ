@@ -12,14 +12,27 @@ export default async function handler(
     return res.status(400).json({ error: 'ID del auto requerido' })
   }
 
+  // Configurar CORS para permitir acceso desde cualquier origen
   res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  // Manejar solicitudes OPTIONS para CORS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  // Solo permitir método GET
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Método no permitido' })
+  }
 
   try {
     const car = await prisma.car.findUnique({
       where: { id },
       include: {
         images: {
-          orderBy: { order: 'asc' }
+          orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }]
         },
         features: true
       }
@@ -47,7 +60,8 @@ export default async function handler(
       SUV: 'SUV',
       COUPE: 'Cupé',
       HATCHBACK: 'Hatchback',
-      TRUCK: 'Camioneta'
+      TRUCK: 'Camioneta',
+      CONVERTIBLE: 'Convertible'
     }
 
     const brandMap: Record<string, string> = {
@@ -64,6 +78,11 @@ export default async function handler(
       VOLKSWAGEN: 'Volkswagen'
     }
 
+    const categoryMap: Record<string, string> = {
+      NEW: 'Semi nuevo',
+      AUCTION: 'Remate'
+    }
+
     const response = {
       id: car.id,
       title: car.title,
@@ -77,19 +96,38 @@ export default async function handler(
       horsepower: car.horsepower,
       fuelEconomy: car.fuelEconomy,
       description: car.description || 'Sin descripción disponible.',
-      type: typeMap[car.type],
-      fuelType: fuelMap[car.fuelType],
-      transmission: transmissionMap[car.transmission],
+      type: typeMap[car.type] || car.type,
+      fuelType: fuelMap[car.fuelType] || car.fuelType,
+      transmission: transmissionMap[car.transmission] || car.transmission,
+      category: categoryMap[car.category] || car.category,
       isFeatured: car.isFeatured,
+      createdAt: car.createdAt.toISOString(),
+      updatedAt: car.updatedAt.toISOString(),
+      
+      // Incluir imágenes con mediaType y thumbnailUrl
       images: car.images.map(img => ({
+        id: img.id,
         url: img.url,
+        mediaType: img.mediaType || 'IMAGE', // Default a IMAGE si no existe
+        thumbnailUrl: img.thumbnailUrl || null,
+        order: img.order,
         isPrimary: img.isPrimary
+      })),
+      
+      // Incluir características
+      features: car.features.map(feature => ({
+        id: feature.id,
+        name: feature.name,
+        description: feature.description || ''
       }))
     }
 
     res.status(200).json(response)
   } catch (error) {
     console.error('Error cargando auto:', error)
-    res.status(500).json({ error: 'Error interno' })
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      message: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+    })
   }
 }

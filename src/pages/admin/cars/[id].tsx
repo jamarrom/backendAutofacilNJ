@@ -1,5 +1,5 @@
-// pages/admin/cars/[id].tsx
-// EDITAR VEHÍCULO — VERSIÓN FINAL 100% FUNCIONAL SIN TAILWIND (2025)
+// pages/admin/cars/[id].tsx - Versión corregida
+// EDITAR VEHÍCULO — VERSIÓN ACTUALIZADA PARA IMÁGENES Y VIDEOS
 
 import { useState } from 'react'
 import { GetServerSideProps } from 'next'
@@ -23,30 +23,76 @@ const BRANDS = [
   { value: 'VOLKSWAGEN', label: 'Volkswagen' },
 ] as const
 
+type BrandType = typeof BRANDS[number]['value']
+
 const CAR_TYPES = ['SEDAN', 'SUV', 'COUPE', 'HATCHBACK', 'TRUCK', 'CONVERTIBLE'] as const
+type CarType = typeof CAR_TYPES[number]
+
 const FUEL_TYPES = ['GASOLINE', 'DIESEL', 'ELECTRIC', 'HYBRID'] as const
+type FuelType = typeof FUEL_TYPES[number]
+
 const TRANSMISSIONS = ['AUTOMATIC', 'MANUAL'] as const
+type TransmissionType = typeof TRANSMISSIONS[number]
+
 const CATEGORIES = ['NEW', 'AUCTION'] as const
+type CategoryType = typeof CATEGORIES[number]
 
-interface CarImage { url: string; order: number; isPrimary: boolean }
-interface CarFeature { name: string; description?: string }
+// Definir tipos explícitamente
+type MediaType = 'IMAGE' | 'VIDEO'
 
-interface Car {
+interface CarImage { 
   id: string
+  url: string; 
+  mediaType: MediaType;
+  thumbnailUrl?: string;
+  order: number; 
+  isPrimary: boolean 
+}
+
+interface CarFeature { 
+  id: string
+  name: string; 
+  description?: string 
+}
+
+// Definir el tipo para formData
+interface FormData {
   title: string
-  brand: string
+  brand: BrandType
   model: string
   year: number
   price: number
   mileage: number
   color: string
-  type: string
-  fuelType: string
-  transmission: string
+  type: CarType
+  fuelType: FuelType
+  transmission: TransmissionType
+  seats: number
+  horsepower: number
+  fuelEconomy: string
+  category: CategoryType
+  isFeatured: boolean
+  description: string
+  images: CarImage[]
+  features: CarFeature[]
+}
+
+interface Car {
+  id: string
+  title: string
+  brand: BrandType
+  model: string
+  year: number
+  price: number
+  mileage: number
+  color: string
+  type: CarType
+  fuelType: FuelType
+  transmission: TransmissionType
   seats: number
   horsepower?: number
   fuelEconomy?: string
-  category: string
+  category: CategoryType
   isFeatured: boolean
   description: string
   images: CarImage[]
@@ -56,8 +102,9 @@ interface Car {
 export default function EditCar({ car }: { car: Car }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [nextId, setNextId] = useState(car.images.length + 1)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     title: car.title,
     brand: car.brand,
     model: car.model,
@@ -74,40 +121,96 @@ export default function EditCar({ car }: { car: Car }) {
     category: car.category,
     isFeatured: car.isFeatured,
     description: car.description,
-    images: car.images,
-    features: car.features || [],
+    images: car.images.map(img => ({
+      id: img.id,
+      url: img.url,
+      mediaType: img.mediaType || 'IMAGE',
+      thumbnailUrl: img.thumbnailUrl || '',
+      order: img.order,
+      isPrimary: img.isPrimary,
+    })),
+    features: car.features.map(f => ({
+      id: f.id,
+      name: f.name,
+      description: f.description || ''
+    })),
   })
 
-  const handleImagesUpload = (uploadedFiles: { url: string }[]) => {
-    const newImages = uploadedFiles.map((file, i) => ({
-      url: file.url,
-      order: formData.images.length + i,
-      isPrimary: formData.images.length === 0 && i === 0,
+  // ==================== AGREGAR IMAGEN/VIDEO A LA GALERÍA ====================
+  const handleImagesUpload = (uploadedFiles: any[]) => {
+    if (uploadedFiles.length === 0) return
+
+    const newImages: CarImage[] = uploadedFiles.map((file, i) => {
+      const isVideo = file.type?.startsWith('video/') || file.url?.includes('.mp4') || file.url?.includes('.mov')
+      
+      return {
+        id: `temp-${nextId + i}`,
+        url: file.url,
+        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+        thumbnailUrl: isVideo ? '' : undefined,
+        order: formData.images.length + i,
+        isPrimary: formData.images.length === 0 && i === 0, // Primera imagen/video es principal si no hay ninguna
+      }
+    })
+
+    setFormData(prev => ({ 
+      ...prev, 
+      images: [...prev.images, ...newImages] 
     }))
-    setFormData(prev => ({ ...prev, images: [...prev.images, ...newImages] }))
+    setNextId(prev => prev + uploadedFiles.length)
   }
 
+  // ==================== THUMBNAIL PARA VIDEOS ====================
+  const handleThumbnailUpload = (index: number, files: any[]) => {
+    if (files.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        images: prev.images.map((img, i) => 
+          i === index 
+            ? { ...img, thumbnailUrl: files[0].url }
+            : img
+        )
+      }))
+    }
+  }
+
+  // ==================== ELIMINAR IMAGEN/VIDEO ====================
   const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }))
+    setFormData(prev => {
+      const updatedImages = prev.images.filter((_, i) => i !== index)
+      
+      // Si eliminamos la imagen principal, asignar la siguiente como principal
+      if (prev.images[index]?.isPrimary && updatedImages.length > 0) {
+        updatedImages[0].isPrimary = true
+      }
+      
+      return {
+        ...prev,
+        images: updatedImages
+      }
+    })
   }
 
+  // ==================== HACER IMAGEN/VIDEO PRINCIPAL ====================
   const setPrimaryImage = (index: number) => {
     setFormData(prev => ({
       ...prev,
       images: prev.images.map((img, i) => ({
         ...img,
-        isPrimary: i === index,
-      })),
+        isPrimary: i === index
+      }))
     }))
   }
 
+  // ==================== CARACTERÍSTICAS ====================
   const addFeature = () => {
     setFormData(prev => ({
       ...prev,
-      features: [...prev.features, { name: '', description: '' }],
+      features: [...prev.features, { 
+        id: `temp-${Date.now()}`, 
+        name: '', 
+        description: '' 
+      }],
     }))
   }
 
@@ -125,26 +228,52 @@ export default function EditCar({ car }: { car: Car }) {
     }))
   }
 
+  // ==================== ENVÍO CON VALIDACIÓN ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validaciones básicas
     if (!formData.title.trim()) return alert('El título es obligatorio')
-    if (formData.images.length < 3) return alert('Mínimo 3 imágenes')
-    if (!formData.images.some(img => img.isPrimary)) return alert('Selecciona una imagen principal')
+    if (!formData.brand || !formData.model.trim()) return alert('Marca y modelo obligatorios')
+    
+    // Validar imágenes
+    if (formData.images.length === 0) {
+      return alert('Debes subir al menos una imagen o video')
+    }
+    
+    // Validar que haya al menos una imagen/video principal
+    const hasPrimary = formData.images.some(img => img.isPrimary)
+    if (!hasPrimary) {
+      return alert('Debes seleccionar una imagen o video principal')
+    }
+    
+    // Validar thumbnails para videos
+    const videosWithoutThumbnail = formData.images.filter(
+      img => img.mediaType === 'VIDEO' && !img.thumbnailUrl
+    )
+    
+    if (videosWithoutThumbnail.length > 0) {
+      return alert('Todos los videos deben tener un thumbnail (imagen de portada)')
+    }
 
     setSaving(true)
+    
     try {
+      // Preparar datos para la API
+      const apiData = {
+        ...formData,
+        title: formData.title.trim(),
+        year: Number(formData.year),
+        price: Number(formData.price),
+        mileage: Number(formData.mileage),
+        seats: Number(formData.seats),
+        horsepower: formData.horsepower ? Number(formData.horsepower) : null,
+      }
+
       const res = await fetch(`/api/cars/${car.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          title: formData.title.trim(),
-          year: Number(formData.year),
-          price: Number(formData.price),
-          mileage: Number(formData.mileage),
-          seats: Number(formData.seats),
-          horsepower: formData.horsepower ? Number(formData.horsepower) : null,
-        }),
+        body: JSON.stringify(apiData),
       })
 
       if (res.ok) {
@@ -235,7 +364,7 @@ export default function EditCar({ car }: { car: Car }) {
                     <label style={{ display: 'block', fontWeight: 'bold', fontSize: '1.25rem', marginBottom: '0.5rem' }}>Marca *</label>
                     <select
                       value={formData.brand}
-                      onChange={e => setFormData(p => ({ ...p, brand: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, brand: e.target.value as BrandType }))}
                       required
                       style={{
                         width: '100%',
@@ -304,7 +433,7 @@ export default function EditCar({ car }: { car: Car }) {
                     <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Tipo *</label>
                     <select
                       value={formData.type}
-                      onChange={e => setFormData(p => ({ ...p, type: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, type: e.target.value as CarType }))}
                       style={{ width: '100%', padding: '1rem', fontSize: '1.25rem', border: '3px solid #d1d5db', borderRadius: '1rem' }}
                     >
                       {CAR_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -314,7 +443,7 @@ export default function EditCar({ car }: { car: Car }) {
                     <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Combustible *</label>
                     <select
                       value={formData.fuelType}
-                      onChange={e => setFormData(p => ({ ...p, fuelType: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, fuelType: e.target.value as FuelType }))}
                       style={{ width: '100%', padding: '1rem', fontSize: '1.25rem', border: '3px solid #d1d5db', borderRadius: '1rem' }}
                     >
                       {FUEL_TYPES.map(f => (
@@ -328,7 +457,7 @@ export default function EditCar({ car }: { car: Car }) {
                     <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Transmisión *</label>
                     <select
                       value={formData.transmission}
-                      onChange={e => setFormData(p => ({ ...p, transmission: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, transmission: e.target.value as TransmissionType }))}
                       style={{ width: '100%', padding: '1rem', fontSize: '1.25rem', border: '3px solid #d1d5db', borderRadius: '1rem' }}
                     >
                       {TRANSMISSIONS.map(t => (
@@ -406,7 +535,7 @@ export default function EditCar({ car }: { car: Car }) {
                             name="category"
                             value={c}
                             checked={formData.category === c}
-                            onChange={e => setFormData(p => ({ ...p, category: e.target.value }))}
+                            onChange={e => setFormData(p => ({ ...p, category: e.target.value as CategoryType }))}
                             style={{ marginRight: '1rem', transform: 'scale(1.5)' }}
                           />
                           {c === 'NEW' ? 'Semi nuevo' : 'Remate'}
@@ -436,7 +565,7 @@ export default function EditCar({ car }: { car: Car }) {
               </div>
             </section>
 
-            {/* IMÁGENES */}
+            {/* GALERÍA DE IMÁGENES Y VIDEOS */}
             <section style={{
               backgroundColor: 'white',
               borderRadius: '2rem',
@@ -450,10 +579,32 @@ export default function EditCar({ car }: { car: Car }) {
                 fontSize: '1.5rem',
                 fontWeight: 'bold'
               }}>
-                Imágenes ({formData.images.length})
+                Galería de Imágenes y Videos ({formData.images.length})
               </div>
               <div style={{ padding: '2.5rem' }}>
-                <ImageUpload onFilesUpload={handleImagesUpload} multiple={true} uploadType="cars" maxFiles={20} />
+                <div style={{ marginBottom: '2rem' }}>
+                  <p style={{ color: '#666', marginBottom: '1.5rem', fontSize: '1.1rem' }}>
+                    Sube imágenes y/o videos del vehículo. Puedes mezclar ambos tipos.
+                    <br />
+                    <span style={{ color: '#dc2626', fontWeight: 'bold' }}>
+                      * Los videos requieren un thumbnail (imagen de portada)
+                    </span>
+                  </p>
+                  
+                  <ImageUpload 
+                    onFilesUpload={handleImagesUpload} 
+                    multiple={true} 
+                    uploadType="cars" 
+                    accept="image/*,video/*"
+                    label="Haz clic para subir imágenes o videos"
+                    maxFiles={20} 
+                  />
+                  
+                  <div style={{ marginTop: '1rem', color: '#666', fontSize: '0.9rem' }}>
+                    <p>📸 Imágenes: JPG, PNG, GIF</p>
+                    <p>🎥 Videos: MP4, MOV, AVI</p>
+                  </div>
+                </div>
 
                 {formData.images.length > 0 && (
                   <div style={{
@@ -463,21 +614,65 @@ export default function EditCar({ car }: { car: Car }) {
                     gap: '2rem'
                   }}>
                     {formData.images.map((img, i) => (
-                      <div key={i} style={{
+                      <div key={img.id} style={{
                         position: 'relative',
                         borderRadius: '1.5rem',
                         overflow: 'hidden',
                         border: img.isPrimary ? '8px solid #dc2626' : '4px solid #e5e7eb',
                         boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                        transition: 'all 0.3s'
+                        transition: 'all 0.3s',
+                        background: '#f9fafb'
                       }}>
-                        <img src={img.url} alt="" style={{ width: '100%', height: '280px', objectFit: 'cover' }} />
+                        {/* Vista previa según tipo */}
+                        {img.mediaType === 'IMAGE' ? (
+                          <img src={img.url} alt="" style={{ width: '100%', height: '250px', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ position: 'relative', height: '250px' }}>
+                            {/* Si tiene thumbnail, mostrarlo */}
+                            {img.thumbnailUrl ? (
+                              <img 
+                                src={img.thumbnailUrl} 
+                                alt="Video thumbnail" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              />
+                            ) : (
+                              <div style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                background: '#1f2937',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white'
+                              }}>
+                                <span style={{ fontSize: '3rem' }}>🎥</span>
+                              </div>
+                            )}
+                            
+                            {/* Icono de video */}
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '1rem', 
+                              right: '1rem', 
+                              background: 'rgba(0,0,0,0.7)', 
+                              color: 'white', 
+                              padding: '0.5rem 1rem', 
+                              borderRadius: '20px',
+                              fontSize: '0.9rem',
+                              fontWeight: 'bold'
+                            }}>
+                              VIDEO
+                            </div>
+                          </div>
+                        )}
+                        
                         <div style={{
                           position: 'absolute',
                           top: '1rem',
                           right: '1rem',
                           display: 'flex',
-                          gap: '1rem'
+                          flexDirection: 'column',
+                          gap: '0.5rem'
                         }}>
                           <button
                             type="button"
@@ -489,7 +684,8 @@ export default function EditCar({ car }: { car: Car }) {
                               border: 'none',
                               borderRadius: '1rem',
                               fontWeight: 'bold',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
                             }}
                           >
                             {img.isPrimary ? 'Principal' : 'Hacer Principal'}
@@ -504,11 +700,42 @@ export default function EditCar({ car }: { car: Car }) {
                               color: 'white',
                               border: 'none',
                               borderRadius: '50%',
-                              fontSize: '2rem',
-                              cursor: 'pointer'
+                              fontSize: '1.5rem',
+                              cursor: 'pointer',
+                              alignSelf: 'flex-end'
                             }}
                           >×</button>
                         </div>
+                        
+                        {/* Para videos: subir thumbnail si no tiene */}
+                        {img.mediaType === 'VIDEO' && !img.thumbnailUrl && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            bottom: '80px', 
+                            left: '1rem', 
+                            right: '1rem' 
+                          }}>
+                            <div style={{
+                              background: '#3b82f6',
+                              color: 'white',
+                              padding: '0.75rem',
+                              borderRadius: '0.75rem',
+                              textAlign: 'center',
+                              fontWeight: 'bold',
+                              fontSize: '0.9rem',
+                              cursor: 'pointer'
+                            }}>
+                              <ImageUpload
+                                onFilesUpload={(files) => handleThumbnailUpload(i, files)}
+                                multiple={false}
+                                uploadType="cars"
+                                accept="image/*"
+                                label="Subir thumbnail"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
                         {img.isPrimary && (
                           <div style={{
                             position: 'absolute',
@@ -520,11 +747,26 @@ export default function EditCar({ car }: { car: Car }) {
                             textAlign: 'center',
                             padding: '1rem',
                             fontWeight: 'bold',
-                            fontSize: '1.5rem'
+                            fontSize: '1.1rem'
                           }}>
-                            IMAGEN PRINCIPAL
+                            {img.mediaType === 'IMAGE' ? 'IMAGEN PRINCIPAL' : 'VIDEO PRINCIPAL'}
                           </div>
                         )}
+                        
+                        {/* Info del medio */}
+                        <div style={{ 
+                          position: 'absolute',
+                          bottom: img.isPrimary ? '50px' : '10px',
+                          left: '10px',
+                          background: 'rgba(0,0,0,0.7)',
+                          color: 'white',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {img.mediaType === 'IMAGE' ? '📸 Imagen' : '🎥 Video'}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -567,7 +809,7 @@ export default function EditCar({ car }: { car: Car }) {
               </div>
               <div style={{ padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 {formData.features.map((f, i) => (
-                  <div key={i} style={{ display: 'block', gridTemplateColumns: '1fr 1fr auto', gap: '1.5rem', alignItems: 'end' }}>
+                  <div key={f.id} style={{ display: 'block', gridTemplateColumns: '1fr 1fr auto', gap: '1.5rem', alignItems: 'end' }}>
                     <input
                       type="text"
                       placeholder="Nombre (ej: Techo panorámico)"
@@ -582,18 +824,21 @@ export default function EditCar({ car }: { car: Car }) {
                         marginRight: '1.5rem'
                       }}
                     />
-                    {/* <input
+                    <input
                       type="text"
                       placeholder="Descripción (opcional)"
                       value={f.description || ''}
                       onChange={e => updateFeature(i, 'description', e.target.value)}
                       style={{
+                        display: 'none',
+                        width: '60%',
                         padding: '1rem',
                         fontSize: '1.25rem',
                         border: '3px solid #d1d5db',
-                        borderRadius: '1rem'
+                        borderRadius: '1rem',
+                        marginRight: '1.5rem'
                       }}
-                    /> */}
+                    />
                     <button
                       type="button"
                       onClick={() => removeFeature(i)}
@@ -676,7 +921,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       where: { id },
       include: {
         images: {
-          orderBy: { order: 'asc' },
+          orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }],
         },
         features: true,
       },
@@ -686,20 +931,27 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       return { notFound: true }
     }
 
-    // CONVERSIÓN DE FECHAS A STRING (esto arregla el error)
-    const serializedCar = {
+    // CONVERSIÓN DE FECHAS A STRING
+    const serializedCar: Car = {
       ...car,
       createdAt: car.createdAt.toISOString(),
       updatedAt: car.updatedAt.toISOString(),
-      // Si tienes más fechas (ej: auctionEndDate), conviértelas también:
-      // auctionEndDate: car.auctionEndDate?.toISOString() || null,
       images: car.images.map(img => ({
+        id: img.id,
         url: img.url,
+        mediaType: (img.mediaType as MediaType) || 'IMAGE',
+        thumbnailUrl: img.thumbnailUrl || '',
         order: img.order,
         isPrimary: img.isPrimary,
       })),
-      features: car.features || [],
-    }
+      features: car.features.map(f => ({
+        id: f.id,
+        name: f.name,
+        description: f.description || '',
+      })),
+      horsepower: car.horsepower || undefined,
+      fuelEconomy: car.fuelEconomy || undefined,
+    } as Car
 
     return {
       props: {

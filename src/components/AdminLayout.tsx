@@ -1,5 +1,4 @@
 // components/AdminLayout.tsx
-import { getSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 
@@ -11,20 +10,31 @@ export default function AdminLayout({
   title?: string
 }) {
   const router = useRouter()
+  const currentPath = router.asPath
 
   const menuItems = [
-    { href: '/admin', label: 'Autos', icon: '🚗' },
-    { href: '/admin/content', label: 'Contenido', icon: '📝' },
+    {
+      href: '/admin',
+      label: 'Autos',
+      icon: 'Car',
+      exact: true,
+    },
+    {
+      // Este ítem ahora redirige directamente al slider
+      href: '/admin/content/sliders',   // ← Va directo al slider
+      label: 'Contenido',
+      children: [
+        { href: '/admin/content/sliders', label: 'Slider Home' },
+        { href: '/admin/content/contact', label: 'Contacto' },
+      ],
+    },
   ]
 
+  // Detecta si estamos en cualquier página de contenido
+  const isInContentSection = currentPath.startsWith('/admin/content')
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#f3f4f6',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
+    <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
       <header
         style={{
@@ -44,10 +54,10 @@ export default function AdminLayout({
           }}
         >
           <h1 style={{ fontSize: '2.5rem', fontWeight: '900', margin: 0 }}>
-            <img src="../logoFooter.png" />  Panel Admin - AutoFácil
+            Panel Admin - AutoFácil
           </h1>
           <button
-            onClick={() => router.push('/api/auth/signout')}
+            onClick={() => router.push('/login')}
             style={{
               padding: '0.75rem 2rem',
               backgroundColor: '#dc2626',
@@ -75,39 +85,90 @@ export default function AdminLayout({
           }}
         >
           {menuItems.map((item) => {
-            const isActive =
-              router.asPath === item.href
+            const isActive = item.exact
+              ? currentPath === item.href
+              : currentPath.startsWith(item.href) || isInContentSection
+
+            const hasActiveChild =
+              item.children?.some((child) => currentPath === child.href) || false
+
+            // Mostrar submenú si estamos en cualquier página de /admin/content/*
+            const showChildren = isInContentSection
 
             return (
-              <Link key={item.href} href={item.href}>
-                <div
-                  style={{
-                    padding: '1.5rem 2rem',
-                    fontSize: '1.4rem',
-                    fontWeight: isActive ? '900' : '600',
-                    backgroundColor: isActive ? '#dc2626' : 'transparent',
-                    borderLeft: isActive ? '8px solid #fbbf24' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                  }}
-                  onMouseOver={(e) =>
-                    !isActive &&
-                    (e.currentTarget.style.backgroundColor = '#374151')
-                  }
-                  onMouseOut={(e) =>
-                    !isActive &&
-                    (e.currentTarget.style.backgroundColor = 'transparent')
-                  }
-                >
-                  {item.icon} {item.label}
-                </div>
-              </Link>
+              <div key={item.href}>
+                {/* Ítem principal: ahora va directo al slider */}
+                <Link href={item.href}>
+                  <div
+                    style={{
+                      padding: '1.5rem 2rem',
+                      fontSize: '1.4rem',
+                      fontWeight: isActive || hasActiveChild ? '900' : '600',
+                      backgroundColor: isActive || hasActiveChild ? '#dc2626' : 'transparent',
+                      borderLeft: isActive || hasActiveChild ? '8px solid #fbbf24' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s',
+                    }}
+                    onMouseOver={(e) => {
+                      if (!isActive && !hasActiveChild) {
+                        e.currentTarget.style.backgroundColor = '#374151'
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (!isActive && !hasActiveChild) {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                      }
+                    }}
+                  >
+                    {item.icon} {item.label}
+                  </div>
+                </Link>
+
+                {/* Submenú siempre visible cuando estamos en contenido */}
+                {showChildren && item.children && (
+                  <div style={{ backgroundColor: '#111827' }}>
+                    {item.children.map((child) => {
+                      const isChildActive = currentPath === child.href
+
+                      return (
+                        <Link key={child.href} href={child.href}>
+                          <div
+                            style={{
+                              padding: '1rem 3rem',
+                              fontSize: '1.2rem',
+                              fontWeight: isChildActive ? '800' : '500',
+                              backgroundColor: isChildActive ? '#dc2626' : 'transparent',
+                              borderLeft: isChildActive ? '4px solid #fbbf24' : 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s',
+                            }}
+                            onMouseOver={(e) => {
+                              if (!isChildActive) {
+                                e.currentTarget.style.backgroundColor = '#1f2937'
+                              }
+                            }}
+                            onMouseOut={(e) => {
+                              if (!isChildActive) {
+                                e.currentTarget.style.backgroundColor = 'transparent'
+                              }
+                            }}
+                          >
+                            {child.label}
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           })}
         </aside>
 
         {/* Contenido principal */}
-        <main style={{ flex: 1, padding: '2rem' }}>{children}</main>
+        <main style={{ flex: 1, padding: '2rem' }}>
+          {children}
+        </main>
       </div>
     </div>
   )

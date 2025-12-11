@@ -7,7 +7,10 @@ import AdminLayout from '../../../components/AdminLayout'
 
 interface Slider {
   id: string
-  imageUrl: string
+  mediaType: 'IMAGE' | 'VIDEO'
+  imageUrl?: string
+  videoUrl?: string
+  thumbnailUrl?: string
   title?: string
   subtitle?: string
   order: number
@@ -23,13 +26,15 @@ export default function SlidersAdmin() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
+    mediaType: 'IMAGE' as 'IMAGE' | 'VIDEO',
     imageUrl: '',
+    videoUrl: '',
+    thumbnailUrl: '',
     title: '',
     subtitle: '',
     order: 0
   })
 
-  // Sincroniza el tab de la URL con el estado
   useEffect(() => {
     if (tab === 'home' || tab === 'auction') {
       setActiveTab(tab)
@@ -38,7 +43,6 @@ export default function SlidersAdmin() {
     }
   }, [tab])
 
-  // Cambiar pestaña y actualizar URL
   const handleTabChange = (newTab: 'home' | 'auction') => {
     setActiveTab(newTab)
     router.push(`/admin/sliders?tab=${newTab}`, undefined, { shallow: true })
@@ -65,8 +69,13 @@ export default function SlidersAdmin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.imageUrl) {
-      alert('Debes subir una imagen')
+
+    if (formData.mediaType === 'IMAGE' && !formData.imageUrl) {
+      alert('Debes subir una imagen para tipo Imagen')
+      return
+    }
+    if (formData.mediaType === 'VIDEO' && (!formData.videoUrl || !formData.thumbnailUrl)) {
+      alert('Debes subir un video y un thumbnail para tipo Video')
       return
     }
 
@@ -80,7 +89,15 @@ export default function SlidersAdmin() {
 
       if (res.ok) {
         setShowForm(false)
-        setFormData({ imageUrl: '', title: '', subtitle: '', order: 0 })
+        setFormData({
+          mediaType: 'IMAGE',
+          imageUrl: '',
+          videoUrl: '',
+          thumbnailUrl: '',
+          title: '',
+          subtitle: '',
+          order: 0
+        })
         fetchSliders()
       } else {
         alert('Error al guardar el slider')
@@ -95,16 +112,27 @@ export default function SlidersAdmin() {
 
     try {
       const endpoint = activeTab === 'home' ? '/api/sliders/home' : '/api/sliders/auction'
-      await fetch(`${endpoint}/${id}`, { method: 'DELETE' })
-      fetchSliders()
+      const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        fetchSliders()
+      } else {
+        alert('Error al eliminar')
+      }
     } catch (error) {
       alert('No se pudo eliminar')
     }
   }
 
-  const handleImageUpload = (uploadedFiles: any[]) => {
+  const handleMediaUpload = (type: 'image' | 'video' | 'thumbnail', uploadedFiles: any[]) => {
     if (uploadedFiles.length > 0) {
-      setFormData(prev => ({ ...prev, imageUrl: uploadedFiles[0].url }))
+      const url = uploadedFiles[0].url
+      if (type === 'image') {
+        setFormData(prev => ({ ...prev, imageUrl: url }))
+      } else if (type === 'video') {
+        setFormData(prev => ({ ...prev, videoUrl: url }))
+      } else if (type === 'thumbnail') {
+        setFormData(prev => ({ ...prev, thumbnailUrl: url }))
+      }
     }
   }
 
@@ -123,12 +151,8 @@ export default function SlidersAdmin() {
           flexWrap: 'wrap',
           gap: '1rem'
         }}>
-          {/* <h1 style={{ fontSize: '2.2rem', color: '#1e3a8a', margin: 0 }}>
-            {currentTitle}
-          </h1> */}
-
           <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
+            {/* <button
               onClick={() => handleTabChange('home')}
               style={{
                 padding: '0.85rem 2rem',
@@ -145,7 +169,7 @@ export default function SlidersAdmin() {
             >
               Slider Home
             </button>
-            {/* <button
+            <button
               onClick={() => handleTabChange('auction')}
               style={{
                 padding: '0.85rem 2rem',
@@ -168,7 +192,7 @@ export default function SlidersAdmin() {
         {/* Botón Agregar */}
         <div style={{ marginBottom: '2rem', textAlign: 'right' }}>
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => setShowForm(true)}
             style={{
               backgroundColor: '#dc2626',
               color: 'white',
@@ -201,39 +225,133 @@ export default function SlidersAdmin() {
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.7rem', fontWeight: '600' }}>
-                  Imagen del Slider *
+                  Tipo de Media *
                 </label>
-                {!formData.imageUrl ? (
-                  <ImageUpload
-                    onFilesUpload={handleImageUpload}
-                    multiple={false}
-                    uploadType="sliders"
-                  />
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <img
-                      src={formData.imageUrl}
-                      alt="Preview"
-                      style={{ width: '380px', height: '180px', objectFit: 'cover', borderRadius: '12px', border: '3px solid #dc2626' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
-                      style={{
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        padding: '0.7rem 1.5rem',
-                        border: 'none',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Cambiar Imagen
-                    </button>
-                  </div>
-                )}
+                <select
+                  value={formData.mediaType}
+                  onChange={e => setFormData(prev => ({ ...prev, mediaType: e.target.value as 'IMAGE' | 'VIDEO', imageUrl: '', videoUrl: '', thumbnailUrl: '' }))}
+                  style={inputStyle}
+                >
+                  <option value="IMAGE">Imagen</option>
+                  <option value="VIDEO">Video</option>
+                </select>
               </div>
+
+              {formData.mediaType === 'IMAGE' ? (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.7rem', fontWeight: '600' }}>
+                    Imagen del Slider *
+                  </label>
+                  {!formData.imageUrl ? (
+                    <ImageUpload
+                      onFilesUpload={(files) => handleMediaUpload('image', files)}
+                      multiple={false}
+                      uploadType="sliders"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <img
+                        src={formData.imageUrl}
+                        alt="Preview"
+                        style={{ width: '380px', height: '180px', objectFit: 'cover', borderRadius: '12px', border: '3px solid #dc2626' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                        style={{
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          padding: '0.7rem 1.5rem',
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Cambiar Imagen
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.7rem', fontWeight: '600' }}>
+                      Video del Slider *
+                    </label>
+                    {!formData.videoUrl ? (
+                      <ImageUpload
+                        onFilesUpload={(files) => handleMediaUpload('video', files)}
+                        multiple={false}
+                        uploadType="sliders"
+                        accept="video/mp4,video/webm,video/ogg"
+                        label="Haz clic o arrastra el video del slider"
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        <video
+                          src={formData.videoUrl}
+                          style={{ width: '380px', height: '180px', objectFit: 'cover', borderRadius: '12px', border: '3px solid #dc2626' }}
+                          controls
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, videoUrl: '' }))}
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            padding: '0.7rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Cambiar Video
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.7rem', fontWeight: '600' }}>
+                      Imagen Thumbnail para Video *
+                    </label>
+                    {!formData.thumbnailUrl ? (
+                      <ImageUpload
+                        onFilesUpload={(files) => handleMediaUpload('thumbnail', files)}
+                        multiple={false}
+                        uploadType="sliders"
+                        accept="image/*"
+                        label="Sube una imagen como portada del video"
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                        <img
+                          src={formData.thumbnailUrl}
+                          alt="Thumbnail Preview"
+                          style={{ width: '380px', height: '180px', objectFit: 'cover', borderRadius: '12px', border: '3px solid #dc2626' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, thumbnailUrl: '' }))}
+                          style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            padding: '0.7rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Cambiar Thumbnail
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                 <div>
@@ -276,7 +394,15 @@ export default function SlidersAdmin() {
                   type="button"
                   onClick={() => {
                     setShowForm(false)
-                    setFormData({ imageUrl: '', title: '', subtitle: '', order: 0 })
+                    setFormData({
+                      mediaType: 'IMAGE',
+                      imageUrl: '',
+                      videoUrl: '',
+                      thumbnailUrl: '',
+                      title: '',
+                      subtitle: '',
+                      order: 0
+                    })
                   }}
                   style={btnSecondary}
                 >
@@ -300,7 +426,8 @@ export default function SlidersAdmin() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e3a8a' }}>
-                  <th style={thStyle}>Imagen</th>
+                  <th style={thStyle}>Tipo</th>
+                  <th style={thStyle}>Preview</th>
                   <th style={thStyle}>Título</th>
                   <th style={thStyle}>Subtítulo</th>
                   <th style={thStyle}>Orden</th>
@@ -310,12 +437,21 @@ export default function SlidersAdmin() {
               <tbody>
                 {sliders.map((slider) => (
                   <tr key={slider.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={tdStyle}>{slider.mediaType}</td>
                     <td style={tdStyle}>
-                      <img
-                        src={slider.imageUrl}
-                        alt={slider.title || 'Slider'}
-                        style={{ width: '200px', height: '110px', objectFit: 'cover', borderRadius: '10px' }}
-                      />
+                      {slider.mediaType === 'IMAGE' ? (
+                        <img
+                          src={slider.imageUrl}
+                          alt={slider.title || 'Slider'}
+                          style={{ width: '200px', height: '110px', objectFit: 'cover', borderRadius: '10px' }}
+                        />
+                      ) : (
+                        <img
+                          src={slider.thumbnailUrl}
+                          alt={slider.title || 'Video Slider'}
+                          style={{ width: '200px', height: '110px', objectFit: 'cover', borderRadius: '10px' }}
+                        />
+                      )}
                     </td>
                     <td style={tdStyle}>{slider.title || '—'}</td>
                     <td style={tdStyle}>{slider.subtitle || '—'}</td>

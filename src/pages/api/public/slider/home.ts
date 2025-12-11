@@ -17,6 +17,8 @@ export default async function handler(
       orderBy: { order: 'asc' },
       select: {
         imageUrl: true,
+        videoUrl: true,
+        thumbnailUrl: true,
         title: true,
         subtitle: true,
       }

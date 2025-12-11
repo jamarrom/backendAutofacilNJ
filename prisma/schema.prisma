@@ -36,11 +36,11 @@ model Car {
   category    CarCategory
   isFeatured  Boolean @default(false)
   description String?
-  
+
   // Relaciones
   images      CarImage[]
   features    CarFeature[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -48,12 +48,14 @@ model Car {
 }
 
 model CarImage {
-  id        String @id @default(cuid())
-  url       String
-  order     Int    @default(0)
-  isPrimary Boolean @default(false)
-  carId     String
-  car       Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  mediaType    MediaType @default(IMAGE)
+  url          String    // Para imagen o video
+  thumbnailUrl String?   // Solo para video
+  order        Int       @default(0)
+  isPrimary    Boolean   @default(false)
+  carId        String
+  car          Car       @relation(fields: [carId], references: [id], onDelete: Cascade)
 
   @@map("car_images")
 }
@@ -69,27 +71,33 @@ model CarFeature {
 }
 
 model HomeSlider {
-  id        String   @id @default(cuid())
-  imageUrl  String
-  title     String?
-  subtitle  String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  mediaType     MediaType  @default(IMAGE)
+  imageUrl      String?
+  videoUrl      String?
+  thumbnailUrl  String?   // Requerido si mediaType es VIDEO
+  title         String?
+  subtitle      String?
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("home_sliders")
 }
 
 model AuctionSlider {
-  id        String   @id @default(cuid())
-  imageUrl  String
-  title     String?
-  subtitle  String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  mediaType     MediaType  @default(IMAGE)
+  imageUrl      String?
+  videoUrl      String?
+  thumbnailUrl  String?
+  title         String?
+  subtitle      String?
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("auction_sliders")
 }
@@ -141,4 +149,9 @@ enum CarBrand {
   FORD
   JEEP
   VOLKSWAGEN
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
 }
