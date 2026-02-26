@@ -57,11 +57,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       uploaded.push({
-        url: `/public/uploads/${safeType}/${newName}`,
+        url: `/uploads/${safeType}/${newName}`,
         name: file.originalFilename,
         size: file.size,
         type: file.mimetype || 'image/jpeg',
       })
+
     }
 
     if (uploaded.length === 0) {
