@@ -57,7 +57,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       uploaded.push({
-        url: `/uploads/${safeType}/${newName}`,
+        url: `/public/uploads/${safeType}/${newName}`,
         name: file.originalFilename,
         size: file.size,
         type: file.mimetype || 'image/jpeg',

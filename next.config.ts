@@ -9,7 +9,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/uploads/:path*',
+        source: '/public/uploads/:path*',
         headers: [
           {
             key: 'Cache-Control',
