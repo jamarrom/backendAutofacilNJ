@@ -466,6 +466,7 @@ export default function NewCarForm() {
             </div>
 
             {/* Vista previa de galería */}
+            {/* Vista previa de galería - Versión simple con video reproducible */}
             {formData.images.length > 0 && (
               <div>
                 <h3 style={{ color: '#dc2626', marginBottom: '1.5rem' }}>
@@ -484,7 +485,7 @@ export default function NewCarForm() {
                         background: '#f9fafb'
                       }}
                     >
-                      {/* Vista previa según tipo - Usamos URL local */}
+                      {/* Vista previa según tipo */}
                       {img.mediaType === 'IMAGE' ? (
                         <img 
                           src={img.url} 
@@ -497,52 +498,39 @@ export default function NewCarForm() {
                           }} 
                         />
                       ) : (
-                        <div style={{ position: 'relative', height: '180px' }}>
-                          {/* Si tiene thumbnail, mostrarlo */}
-                          {img.thumbnailUrl ? (
-                            <img 
-                              src={img.thumbnailUrl} 
-                              alt="Video thumbnail" 
-                              style={{ 
-                                width: '100%', 
-                                height: '100%', 
-                                objectFit: 'cover'
-                              }} 
-                            />
-                          ) : (
-                            <div style={{ 
-                              width: '100%', 
-                              height: '100%', 
-                              background: '#1f2937',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: 'white'
-                            }}>
-                              <span style={{ fontSize: '3rem' }}>🎥</span>
-                            </div>
-                          )}
-                          
-                          {/* Icono de video */}
-                          <div style={{ 
-                            position: 'absolute', 
-                            top: '10px', 
-                            right: '10px', 
-                            background: 'rgba(0,0,0,0.7)', 
-                            color: 'white', 
-                            padding: '5px 10px', 
-                            borderRadius: '20px',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold'
-                          }}>
-                            VIDEO
-                          </div>
+                        <video 
+                          src={img.url}
+                          style={{ 
+                            width: '100%', 
+                            height: '180px', 
+                            objectFit: 'cover',
+                            background: '#000'
+                          }}
+                          controls
+                          preload="metadata"
+                        />
+                      )}
+                      
+                      {/* Badge para identificar tipo */}
+                      {img.mediaType === 'VIDEO' && (
+                        <div style={{ 
+                          position: 'absolute', 
+                          top: '10px', 
+                          right: '10px', 
+                          background: 'rgba(220,38,38,0.9)', 
+                          color: 'white', 
+                          padding: '4px 10px', 
+                          borderRadius: '20px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          zIndex: 2
+                        }}>
+                          VIDEO
                         </div>
                       )}
                       
                       {/* Controles */}
                       <div style={{ padding: '1rem', background: 'white' }}>
-                        {/* Botón para hacer principal */}
                         <button 
                           type="button" 
                           onClick={() => setPrimaryImage(index)}
@@ -561,20 +549,6 @@ export default function NewCarForm() {
                           {img.isPrimary ? '⭐ Principal' : 'Hacer Principal'}
                         </button>
                         
-                        {/* Para videos: subir thumbnail */}
-                        {img.mediaType === 'VIDEO' && !img.thumbnailUrl && (
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <ImageUpload
-                              onFilesUpload={(files) => handleThumbnailUpload(index, files)}
-                              multiple={false}
-                              uploadType="cars"
-                              accept="image/*"
-                              label="Subir thumbnail"
-                            />
-                          </div>
-                        )}
-                        
-                        {/* Botón eliminar */}
                         <button 
                           type="button" 
                           onClick={() => removeImage(index)}
@@ -592,7 +566,6 @@ export default function NewCarForm() {
                           Eliminar
                         </button>
                         
-                        {/* Info del medio */}
                         <div style={{ 
                           marginTop: '0.5rem',
                           fontSize: '0.8rem',
