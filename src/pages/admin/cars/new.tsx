@@ -1,5 +1,5 @@
 // pages/admin/cars/new.tsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getSession } from 'next-auth/react'
 import { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
@@ -34,20 +34,7 @@ type TransmissionType = typeof transmissionTypes[number]
 const categories = ['NEW', 'AUCTION'] as const
 type CategoryType = typeof categories[number]
 
-// Definición del tipo para las imágenes - SOPORTA VIDEOS
-interface LocalImage {
-  id: number
-  url: string  // Data URL para imágenes, Object URL para videos
-  file: File
-  mediaType: 'IMAGE' | 'VIDEO'
-  thumbnailUrl?: string | null
-  thumbnailFile?: File
-  order: number
-  isPrimary: boolean
-  fileName: string
-  isObjectUrl?: boolean  // Para limpiar con revokeObjectURL
-}
-
+// Definición del tipo para el formulario
 interface FormData {
   title: string
   brand: MarcaType
@@ -65,7 +52,15 @@ interface FormData {
   category: CategoryType
   isFeatured: boolean
   description: string
-  images: LocalImage[]
+  images: { 
+    url: string; // URL local para previsualización
+    serverUrl: string; // URL del servidor para guardar
+    mediaType: 'IMAGE' | 'VIDEO'; 
+    thumbnailUrl?: string; // URL local para thumbnail
+    serverThumbnailUrl?: string; // URL del servidor para thumbnail
+    order: number; 
+    isPrimary: boolean 
+  }[]
   features: { name: string; description?: string }[]
 }
 
@@ -91,38 +86,31 @@ export default function NewCarForm() {
     category: 'NEW',
     isFeatured: false,
     description: '',
+    
+    // Imágenes (ahora con URLs locales y del servidor)
     images: [],
+    
+    // Características
     features: []
   })
 
-  // Limpiar URLs de objetos cuando el componente se desmonte
-  useEffect(() => {
-    return () => {
-      formData.images.forEach(img => {
-        if (img.isObjectUrl) {
-          URL.revokeObjectURL(img.url)
-        }
-      })
-    }
-  }, [formData.images])
+  // ==================== AGREGAR IMAGEN/VIDEO A LA GALERÍA ====================
+  const handleMediaUpload = (uploadedFiles: any[]) => {
+    if (uploadedFiles.length === 0) return
 
-  // ==================== AGREGAR IMAGEN/VIDEO LOCAL ====================
-  const handleMediaSelect = (selectedFiles: any[]) => {
-    if (selectedFiles.length === 0) return
-
-    const newImages: LocalImage[] = selectedFiles.map((file, index) => {
-      const isVideo = file.mediaType === 'VIDEO'
+    const newImages = uploadedFiles.map((file, index) => {
+      const isVideo = file.type.startsWith('video/')
       
       return {
         id: nextId + index,
-        url: file.url,
-        file: file.file,
-        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+        // Usamos previewUrl para la previsualización local
+        url: file.previewUrl || file.url,
+        serverUrl: file.url, // Guardamos la URL del servidor
+        mediaType: isVideo ? 'VIDEO' as const : 'IMAGE' as const,
+        thumbnailUrl: isVideo ? '' : undefined,
+        serverThumbnailUrl: undefined,
         order: formData.images.length + index,
-        isPrimary: formData.images.length === 0 && index === 0,
-        fileName: file.name,
-        thumbnailUrl: null,
-        isObjectUrl: file.isObjectUrl || false
+        isPrimary: formData.images.length === 0 && index === 0
       }
     })
 
@@ -131,41 +119,44 @@ export default function NewCarForm() {
       images: [...p.images, ...newImages]
     }))
     
-    setNextId(prev => prev + selectedFiles.length)
+    setNextId(prev => prev + uploadedFiles.length)
   }
 
   // ==================== THUMBNAIL PARA VIDEOS ====================
-  const handleThumbnailSelect = (index: number, files: any[]) => {
-    if (files.length === 0) return
-    
-    setFormData(p => ({
-      ...p,
-      images: p.images.map((img, i) => 
-        i === index 
-          ? { 
-              ...img, 
-              thumbnailUrl: files[0].url,
-              thumbnailFile: files[0].file 
-            }
-          : img
-      )
-    }))
+  const handleThumbnailUpload = (index: number, files: any[]) => {
+    if (files.length > 0) {
+      setFormData(p => ({
+        ...p,
+        images: p.images.map((img, i) => 
+          i === index 
+            ? { 
+                ...img, 
+                thumbnailUrl: files[0].previewUrl || files[0].url,
+                serverThumbnailUrl: files[0].url
+              }
+            : img
+        )
+      }))
+    }
   }
 
-  // ==================== ELIMINAR IMAGEN/VIDEO ====================
+  // ==================== ELIMINAR IMAGEN/VIDEO DE LA GALERÍA ====================
   const removeImage = (index: number) => {
     setFormData(p => {
       const imageToRemove = p.images[index]
       
-      // Limpiar URL de objeto si es video
-      if (imageToRemove.isObjectUrl) {
+      // Limpiar URLs locales para liberar memoria
+      if (imageToRemove.url?.startsWith('blob:')) {
         URL.revokeObjectURL(imageToRemove.url)
       }
-      
+      if (imageToRemove.thumbnailUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(imageToRemove.thumbnailUrl)
+      }
+
       const updatedImages = p.images.filter((_, i) => i !== index)
       
       // Si eliminamos la imagen principal, asignar la siguiente como principal
-      if (imageToRemove?.isPrimary && updatedImages.length > 0) {
+      if (p.images[index]?.isPrimary && updatedImages.length > 0) {
         updatedImages[0].isPrimary = true
       }
       
@@ -211,7 +202,7 @@ export default function NewCarForm() {
     }))
   }
 
-  // ==================== ENVÍO CON ARCHIVOS LOCALES ====================
+  // ==================== ENVÍO CON VALIDACIÓN ====================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -221,7 +212,7 @@ export default function NewCarForm() {
     
     // Validar imágenes
     if (formData.images.length === 0) {
-      return alert('Debes seleccionar al menos una imagen o video')
+      return alert('Debes subir al menos una imagen o video')
     }
     
     // Validar que haya al menos una imagen/video principal
@@ -242,52 +233,41 @@ export default function NewCarForm() {
     setLoading(true)
 
     try {
-      // Crear FormData para enviar archivos
-      const formDataToSend = new FormData()
-      
-      // Agregar datos del vehículo
-      formDataToSend.append('title', formData.title)
-      formDataToSend.append('brand', formData.brand)
-      formDataToSend.append('model', formData.model)
-      formDataToSend.append('year', formData.year.toString())
-      formDataToSend.append('price', formData.price.toString())
-      formDataToSend.append('mileage', formData.mileage.toString())
-      formDataToSend.append('color', formData.color)
-      formDataToSend.append('type', formData.type)
-      formDataToSend.append('fuelType', formData.fuelType)
-      formDataToSend.append('transmission', formData.transmission)
-      formDataToSend.append('seats', formData.seats.toString())
-      formDataToSend.append('horsepower', formData.horsepower.toString())
-      formDataToSend.append('fuelEconomy', formData.fuelEconomy)
-      formDataToSend.append('category', formData.category)
-      formDataToSend.append('isFeatured', formData.isFeatured.toString())
-      formDataToSend.append('description', formData.description)
-      
-      // Agregar características
-      formDataToSend.append('features', JSON.stringify(formData.features))
-
-      // Agregar imágenes y videos
-      formData.images.forEach((img, index) => {
-        // El archivo principal (imagen o video)
-        formDataToSend.append('media', img.file)
-        
-        // Metadata de la imagen
-        formDataToSend.append(`media_${index}_type`, img.mediaType)
-        formDataToSend.append(`media_${index}_order`, img.order.toString())
-        formDataToSend.append(`media_${index}_isPrimary`, img.isPrimary.toString())
-        
-        // Si es video y tiene thumbnail, agregarlo
-        if (img.mediaType === 'VIDEO' && img.thumbnailFile) {
-          formDataToSend.append(`media_${index}_thumbnail`, img.thumbnailFile)
-        }
-      })
+      // Preparar datos para la API - Usamos las URLs del servidor
+      const apiData = {
+        ...formData,
+        year: Number(formData.year),
+        price: Number(formData.price),
+        mileage: Number(formData.mileage),
+        seats: Number(formData.seats),
+        horsepower: formData.horsepower ? Number(formData.horsepower) : null,
+        // Mapeamos las imágenes para usar las URLs del servidor
+        images: formData.images.map(img => ({
+          url: img.serverUrl || img.url,
+          mediaType: img.mediaType,
+          thumbnailUrl: img.mediaType === 'VIDEO' ? (img.serverThumbnailUrl) : undefined,
+          order: img.order,
+          isPrimary: img.isPrimary
+        }))
+      }
 
       const response = await fetch('/api/cars', {
         method: 'POST',
-        body: formDataToSend
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiData)
       })
 
       if (response.ok) {
+        // Limpiar URLs locales
+        formData.images.forEach(img => {
+          if (img.url?.startsWith('blob:')) {
+            URL.revokeObjectURL(img.url)
+          }
+          if (img.thumbnailUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(img.thumbnailUrl)
+          }
+        })
+        
         alert('Vehículo creado con éxito')
         router.push('/admin')
       } else {
@@ -460,39 +440,41 @@ export default function NewCarForm() {
             
             <div style={{ marginBottom: '2rem' }}>
               <p style={{ color: '#666', marginBottom: '1.5rem' }}>
-                Selecciona imágenes y/o videos del vehículo. Puedes mezclar ambos tipos.
+                Sube imágenes y/o videos del vehículo. Puedes mezclar ambos tipos.
                 <br />
-                <strong>Total seleccionado: {formData.images.length} medios</strong>
+                <strong>Total actual: {formData.images.length} medios</strong>
                 <br />
-                <small>Primer medio seleccionado se marcará como principal automáticamente.</small>
+                <small>Primer medio subido se marcará como principal automáticamente.</small>
               </p>
               
               <ImageUpload
-                onFilesUpload={handleMediaSelect}
+                onFilesUpload={handleMediaUpload}
                 multiple={true}
+                uploadType="cars"
                 accept="image/*,video/*"
-                label="Haz clic para seleccionar imágenes o videos"
+                label="Haz clic para subir imágenes o videos"
+                maxFiles={20}
               />
               
               <div style={{ marginTop: '1rem', color: '#666', fontSize: '0.9rem' }}>
-                <p>📸 Imágenes: JPG, PNG, GIF (se mostrarán en preview)</p>
-                <p>🎥 Videos: MP4, MOV, AVI (se podrán reproducir en preview)</p>
+                <p>📸 Imágenes: JPG, PNG, GIF</p>
+                <p>🎥 Videos: MP4, MOV, AVI</p>
                 <p style={{ color: '#dc2626' }}>
                   * Los videos requieren un thumbnail (imagen de portada)
                 </p>
               </div>
             </div>
 
-            {/* Vista previa de galería - CON VIDEOS REPRODUCIBLES */}
+            {/* Vista previa de galería */}
             {formData.images.length > 0 && (
               <div>
                 <h3 style={{ color: '#dc2626', marginBottom: '1.5rem' }}>
-                  Medios seleccionados ({formData.images.length})
+                  Medios subidos ({formData.images.length})
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
                   {formData.images.map((img, index) => (
                     <div 
-                      key={img.id} 
+                      key={index} 
                       style={{ 
                         position: 'relative', 
                         border: img.isPrimary ? '5px solid #dc2626' : '2px solid #e5e7eb', 
@@ -502,58 +484,63 @@ export default function NewCarForm() {
                         background: '#f9fafb'
                       }}
                     >
-                      {/* Vista previa - IMAGEN o VIDEO */}
+                      {/* Vista previa según tipo - Usamos URL local */}
                       {img.mediaType === 'IMAGE' ? (
                         <img 
                           src={img.url} 
-                          alt={img.fileName}
+                          alt="" 
                           style={{ 
                             width: '100%', 
-                            height: '200px', 
+                            height: '180px', 
                             objectFit: 'cover',
                             display: 'block'
                           }} 
                         />
                       ) : (
-                        <div style={{ position: 'relative' }}>
-                          {/* VIDEO - con controles para reproducir */}
-                          <video 
-                            src={img.url}
-                            controls
-                            preload="metadata"
-                            style={{ 
+                        <div style={{ position: 'relative', height: '180px' }}>
+                          {/* Si tiene thumbnail, mostrarlo */}
+                          {img.thumbnailUrl ? (
+                            <img 
+                              src={img.thumbnailUrl} 
+                              alt="Video thumbnail" 
+                              style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover'
+                              }} 
+                            />
+                          ) : (
+                            <div style={{ 
                               width: '100%', 
-                              height: '200px', 
-                              objectFit: 'cover',
-                              background: '#000',
-                              display: 'block'
-                            }}
-                          >
-                            Tu navegador no soporta videos.
-                          </video>
+                              height: '100%', 
+                              background: '#1f2937',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white'
+                            }}>
+                              <span style={{ fontSize: '3rem' }}>🎥</span>
+                            </div>
+                          )}
                           
-                          {/* Badge de video */}
+                          {/* Icono de video */}
                           <div style={{ 
                             position: 'absolute', 
                             top: '10px', 
                             right: '10px', 
-                            background: 'rgba(220, 38, 38, 0.9)', 
+                            background: 'rgba(0,0,0,0.7)', 
                             color: 'white', 
-                            padding: '4px 10px', 
+                            padding: '5px 10px', 
                             borderRadius: '20px',
                             fontSize: '0.8rem',
-                            fontWeight: 'bold',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            zIndex: 10
+                            fontWeight: 'bold'
                           }}>
-                            <span>🎥</span> VIDEO
+                            VIDEO
                           </div>
                         </div>
                       )}
                       
-                      {/* Controles debajo del preview */}
+                      {/* Controles */}
                       <div style={{ padding: '1rem', background: 'white' }}>
                         {/* Botón para hacer principal */}
                         <button 
@@ -574,14 +561,15 @@ export default function NewCarForm() {
                           {img.isPrimary ? '⭐ Principal' : 'Hacer Principal'}
                         </button>
                         
-                        {/* Para videos: subir thumbnail si no tiene */}
+                        {/* Para videos: subir thumbnail */}
                         {img.mediaType === 'VIDEO' && !img.thumbnailUrl && (
                           <div style={{ marginBottom: '0.5rem' }}>
                             <ImageUpload
-                              onFilesUpload={(files) => handleThumbnailSelect(index, files)}
+                              onFilesUpload={(files) => handleThumbnailUpload(index, files)}
                               multiple={false}
+                              uploadType="cars"
                               accept="image/*"
-                              label="➕ Subir Thumbnail"
+                              label="Subir thumbnail"
                             />
                           </div>
                         )}
@@ -613,7 +601,6 @@ export default function NewCarForm() {
                         }}>
                           {img.mediaType === 'IMAGE' ? '📸 Imagen' : '🎥 Video'}
                           {img.isPrimary && ' • Principal'}
-                          {img.file && ` • ${(img.file.size / 1024 / 1024).toFixed(1)} MB`}
                         </div>
                       </div>
                     </div>
@@ -650,7 +637,7 @@ export default function NewCarForm() {
                 key={i} 
                 style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: '1fr 100px', 
+                  gridTemplateColumns: '3fr 1fr 100px', 
                   gap: '1.5rem', 
                   marginBottom: '1.5rem', 
                   alignItems: 'end' 
@@ -663,6 +650,16 @@ export default function NewCarForm() {
                     placeholder="Ej: Techo Solar"
                     value={f.name}
                     onChange={e => updateFeature(i, 'name', e.target.value)}
+                    style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '2px solid #e5e7eb' }}
+                  />
+                </div>
+                <div style={{display:'none'}}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Descripción (opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Techo panorámico eléctrico"
+                    value={f.description || ''}
+                    onChange={e => updateFeature(i, 'description', e.target.value)}
                     style={{ width: '100%', padding: '1rem', borderRadius: '10px', border: '2px solid #e5e7eb' }}
                   />
                 </div>
