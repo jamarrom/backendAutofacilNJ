@@ -1,15 +1,22 @@
 import type { NextConfig } from "next";
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'https://admin.autofacil.online'],
+    // Si usas imágenes desde el API, necesitas configurar remotePatterns
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
-  // Configuración para servir archivos estáticos desde public/uploads
+  // Configuración de headers (opcional)
   async headers() {
     return [
       {
-        source: '/uploads/:path*',
+        source: '/api/public/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -17,8 +24,8 @@ const nextConfig = {
           },
         ],
       },
-    ]
+    ];
   },
-}
+};
 
-module.exports = nextConfig
+export default nextConfig;

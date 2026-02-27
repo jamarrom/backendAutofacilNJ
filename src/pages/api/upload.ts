@@ -1,4 +1,4 @@
-// pages/api/upload.ts → VERSIÓN FINAL QUE NUNCA FALLA (2025)
+// pages/api/upload.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fs from 'fs'
 import path from 'path'
@@ -11,6 +11,11 @@ export const config = {
 
 const uploadDir = path.join(process.cwd(), 'public', 'uploads')
 
+// Asegurar que el directorio existe
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true, mode: 0o755 })
+}
+
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -20,7 +25,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const form = new formidable.IncomingForm({
     uploadDir,
     keepExtensions: true,
-    maxFileSize: 15 * 1024 * 1024,
+    maxFileSize: 50 * 1024 * 1024,
     multiples: true,
   })
 
@@ -30,13 +35,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: 'Error al procesar archivos' })
     }
 
-    // AQUÍ ESTÁ LA CLAVE: fields.type ahora es array!
     const type = Array.isArray(fields.type) ? fields.type[0] : fields.type
     const safeType = ['cars', 'sliders'].includes(type) ? type : 'cars'
 
     const typeDir = path.join(uploadDir, safeType)
     if (!fs.existsSync(typeDir)) {
-      fs.mkdirSync(typeDir, { recursive: true })
+      fs.mkdirSync(typeDir, { recursive: true, mode: 0o755 })
     }
 
     const uploaded: any[] = []
@@ -50,19 +54,22 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       const newPath = path.join(typeDir, newName)
 
       try {
+        // Mover el archivo
         fs.renameSync(file.filepath, newPath)
-      } catch (renameErr) {
-        console.error('Error moviendo archivo:', renameErr)
+        // Establecer permisos
+        fs.chmodSync(newPath, 0o644)
+      } catch (error) {
+        console.error('Error procesando archivo:', error)
         continue
       }
 
+      // IMPORTANTE: Ahora usamos la ruta del API en lugar de la directa
       uploaded.push({
-        url: `/uploads/${safeType}/${newName}`,
+        url: `/api/public/uploads/${safeType}/${newName}`, // Ruta modificada
         name: file.originalFilename,
         size: file.size,
         type: file.mimetype || 'image/jpeg',
       })
-
     }
 
     if (uploaded.length === 0) {
